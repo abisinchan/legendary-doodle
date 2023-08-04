@@ -45,23 +45,41 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    // Update a tag's name by its `id` value
-    const [updatedRowsCount, updatedRows] = await Tag.update(
+    const tagId = parseInt(req.params.id); // Convert the ID to an integer.
+
+    // Check if the ID is a valid number.
+    if (isNaN(tagId) || tagId <= 0) {
+      return res.status(400).json({ message: 'Invalid tag ID' });
+    }
+
+    // Update the tag's name by its `id` value
+    const [updatedRowsCount] = await Tag.update(
       { tag_name: req.body.tag_name },
       {
-        where: { id: req.params.id },
+        where: { id: tagId }, // Use the parsed tagId in the where clause.
       }
     );
 
+    // Check if any rows were updated.
     if (updatedRowsCount === 0) {
       return res.status(404).json({ message: 'Tag not found' });
     }
 
-    res.status(200).json(updatedRows[0]);
+    // Retrieve the updated tag from the database again.
+    const updatedTag = await Tag.findByPk(tagId);
+
+    if (!updatedTag) {
+      return res.status(404).json({ message: 'Tag not found' });
+    }
+
+    // Return the updated tag object.
+    res.status(200).json(updatedTag);
   } catch (err) {
-    res.status(400).json(err);
+    console.error(err); // Log the error for debugging purposes.
+    res.status(500).json({ message: 'Error updating tag' });
   }
 });
+
 
 router.delete('/:id', async (req, res) => {
   try {

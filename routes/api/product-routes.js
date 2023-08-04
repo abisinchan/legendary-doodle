@@ -71,18 +71,25 @@ router.post('/', async (req, res) => {
   }
 });
 
+
 // update product
 router.put('/:id', async (req, res) => {
   try {
+    // Check if the product exists before updating
+    const existingProduct = await Product.findByPk(req.params.id);
+    if (!existingProduct) {
+      return res.status(404).json({ message: 'Product not found' });
+    }
+
     // Update product data
-    const [updatedRowsCount, updatedRows] = await Product.update(req.body, {
+    const updatedRowsCount = await Product.update(req.body, {
       where: {
         id: req.params.id,
       },
     });
 
-    if (updatedRowsCount === 0) {
-      return res.status(404).json({ message: 'Product not found' });
+    if (updatedRowsCount[0] === 0) {
+      return res.status(400).json({ message: 'Failed to update product' });
     }
 
     // If there are tagIds in the request body, update the associated tags in the ProductTag model
@@ -114,11 +121,17 @@ router.put('/:id', async (req, res) => {
       ]);
     }
 
-    res.status(200).json(updatedRows[0]);
+    // Fetch the updated product after the update is done
+    const updatedProduct = await Product.findByPk(req.params.id);
+
+    res.status(200).json(updatedProduct);
   } catch (err) {
-    res.status(400).json(err);
+    console.error(err);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
 
 // delete one product by its `id` value
 router.delete('/:id', async (req, res) => {

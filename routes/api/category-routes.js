@@ -48,22 +48,56 @@ router.post('/', async (req, res) => {
   }
 });
 
-//put -update category by its id value
-router.put('/:id', async (req, res) => {
-  try {
-    const [updatedRowsCount, updatedRows] = await Category.update(req.body, {
-      where: { id: req.params.id },
+// update product
+router.put('/:id', (req, res) => {
+  // update product data
+  Product.update(req.body, {
+    where: {
+      id: req.params.id,
+    },
+  })
+    .then(() => {
+      // find the updated product
+      return Product.findByPk(req.params.id);
+    })
+    .then((updatedProduct) => {
+      // find all associated tags from ProductTag
+      return ProductTag.findAll({ where: { product_id: req.params.id } })
+        .then((productTags) => {
+          // get list of current tag_ids
+          const productTagIds = productTags.map(({ tag_id }) => tag_id);
+          // create filtered list of new tag_ids
+          const newProductTags = req.body.tagIds
+            .filter((tag_id) => !productTagIds.includes(tag_id))
+            .map((tag_id) => {
+              return {
+                product_id: req.params.id,
+                tag_id,
+              };
+            });
+          // figure out which ones to remove
+          const productTagsToRemove = productTags
+            .filter(({ tag_id }) => !req.body.tagIds.includes(tag_id))
+            .map(({ id }) => id);
+
+          // run both actions
+          return Promise.all([
+            ProductTag.destroy({ where: { id: productTagsToRemove } }),
+            ProductTag.bulkCreate(newProductTags),
+            updatedProduct, // include the updated product in the Promise.all response
+          ]);
+        });
+    })
+    .then((results) => {
+      const updatedProduct = results.pop(); // The updated product is the last item in the results array
+      res.json({ product: updatedProduct, tags: results }); // Respond with the updated product and associated tags
+    })
+    .catch((err) => {
+      // console.log(err);
+      res.status(400).json(err);
     });
-
-    if (updatedRowsCount === 0) {
-      return res.status(404).json({ message: 'Category not found' });
-    }
-
-    res.status(200).json(updatedRows[0]);
-  } catch (err) {
-    res.status(500).json(err);
-  }
 });
+
 
 //delete -delete by id value
 router.delete('/:id', async (req, res) => {
